@@ -156,7 +156,7 @@ st.markdown("""
     /* This targets the selected option text in the sidebar */
     [data-testid="stSidebar"] .nav-link.active {
         color: #0062FF !important;
-        background-color: #FFFFFF !important;
+        /* background-color: #FFFFFF !important; */
     }
 
     /* --- Main UI Components --- */
@@ -1598,7 +1598,7 @@ def main():
         if os.path.exists("logo.png"):
             st.image("logo.png", use_container_width=True)
         else:
-            st.markdown("<h1 style='color: white; text-align: center; margin-bottom: 1rem;'>šava</h1>", unsafe_allow_html=True)
+            st.markdown("<h1 style='color: white; text-align: center; margin-bottom: 1rem;'>sava</h1>", unsafe_allow_html=True)
         
         page = option_menu(
             menu_title=None,
