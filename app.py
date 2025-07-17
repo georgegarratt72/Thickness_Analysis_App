@@ -659,7 +659,7 @@ def fig_to_base64(fig, width=1000, height=None):
         fig.write_image(buf, format="png", width=width, height=height)
         return base64.b64encode(buf.getvalue()).decode("utf-8")
     except Exception as e:
-        st.warning(f"Could not convert plot to base64: {e}")
+        # If image export fails, return empty string (reports will show without images)
         return ""
 
 def generate_lot_analysis_report_html(title, scores_data, pie_data, plot_objects, target_mean, input_filename):
@@ -1313,14 +1313,17 @@ def render_analysis_dashboard(analysis_type):
                 
                 # Export TUS distribution plot
                 if plots.get('TUS_dist'):
-                    tus_dist_img = plots.get('TUS_dist').to_image(format="png", width=800, height=600)
-                    st.download_button(
-                        label="📥 Download TUS Distribution Plot",
-                        data=tus_dist_img,
-                        file_name=f"{analysis_type}_TUS_distribution.png",
-                        mime="image/png",
-                        use_container_width=True
-                    )
+                    try:
+                        tus_dist_img = plots.get('TUS_dist').to_image(format="png", width=800, height=600)
+                        st.download_button(
+                            label="📥 Download TUS Distribution Plot",
+                            data=tus_dist_img,
+                            file_name=f"{analysis_type}_TUS_distribution.png",
+                            mime="image/png",
+                            use_container_width=True
+                        )
+                    except Exception as e:
+                        st.info("📥 Plot export temporarily unavailable in this environment")
                 
                 with st.expander("View TUS Data"):
                     tus_summary = scores['TUS_category'].value_counts().reset_index()
@@ -1332,20 +1335,23 @@ def render_analysis_dashboard(analysis_type):
                 
                 # Export RUS distribution plot
                 if plots.get('RUS_dist'):
-                    rus_dist_img = plots.get('RUS_dist').to_image(format="png", width=800, height=600)
-                    st.download_button(
-                        label="📥 Download RUS Distribution Plot",
-                        data=rus_dist_img,
-                        file_name=f"{analysis_type}_RUS_distribution.png",
-                        mime="image/png",
-                        use_container_width=True
-                    )
+                    try:
+                        rus_dist_img = plots.get('RUS_dist').to_image(format="png", width=800, height=600)
+                        st.download_button(
+                            label="📥 Download RUS Distribution Plot",
+                            data=rus_dist_img,
+                            file_name=f"{analysis_type}_RUS_distribution.png",
+                            mime="image/png",
+                            use_container_width=True
+                        )
+                    except Exception as e:
+                        st.info("📥 Plot export temporarily unavailable in this environment")
                 
                 with st.expander("View RUS Data"):
                     rus_summary = scores['RUS_category'].value_counts().reset_index()
                     rus_summary.columns = ['RUS Category', 'Count']
                     st.dataframe(rus_summary, use_container_width=True)
-    
+
     with res_tab:
         st.subheader(f"{analysis_type} Uniformity Scores Data Table")
         
@@ -1490,14 +1496,17 @@ def render_analysis_dashboard(analysis_type):
             if plots.get('TUS_profile'):
                 col1, col2 = st.columns(2)
                 with col1:
-                    tus_profile_img = plots.get('TUS_profile').to_image(format="png", width=1200, height=800)
-                    st.download_button(
-                        label="📥 Download TUS Profile Plot",
-                        data=tus_profile_img,
-                        file_name=f"{analysis_type}_TUS_profiles.png",
-                        mime="image/png",
-                        use_container_width=True
-                    )
+                    try:
+                        tus_profile_img = plots.get('TUS_profile').to_image(format="png", width=1200, height=800)
+                        st.download_button(
+                            label="📥 Download TUS Profile Plot",
+                            data=tus_profile_img,
+                            file_name=f"{analysis_type}_TUS_profiles.png",
+                            mime="image/png",
+                            use_container_width=True
+                        )
+                    except Exception as e:
+                        st.info("📥 Plot export temporarily unavailable in this environment")
                 with col2:
                     # Add option to download as SVG for better quality
                     try:
@@ -1509,8 +1518,8 @@ def render_analysis_dashboard(analysis_type):
                             mime="image/svg+xml",
                             use_container_width=True
                         )
-                    except:
-                        pass  # SVG export might not be available
+                    except Exception as e:
+                        st.info("📥 SVG export temporarily unavailable in this environment")
 
         with st.container(border=True):
             st.subheader("RUS Profiles")
@@ -1520,14 +1529,17 @@ def render_analysis_dashboard(analysis_type):
             if plots.get('RUS_profile'):
                 col1, col2 = st.columns(2)
                 with col1:
-                    rus_profile_img = plots.get('RUS_profile').to_image(format="png", width=1200, height=800)
-                    st.download_button(
-                        label="📥 Download RUS Profile Plot",
-                        data=rus_profile_img,
-                        file_name=f"{analysis_type}_RUS_profiles.png",
-                        mime="image/png",
-                        use_container_width=True
-                    )
+                    try:
+                        rus_profile_img = plots.get('RUS_profile').to_image(format="png", width=1200, height=800)
+                        st.download_button(
+                            label="📥 Download RUS Profile Plot",
+                            data=rus_profile_img,
+                            file_name=f"{analysis_type}_RUS_profiles.png",
+                            mime="image/png",
+                            use_container_width=True
+                        )
+                    except Exception as e:
+                        st.info("📥 Plot export temporarily unavailable in this environment")
                 with col2:
                     # Add option to download as SVG for better quality
                     try:
@@ -1539,8 +1551,8 @@ def render_analysis_dashboard(analysis_type):
                             mime="image/svg+xml",
                             use_container_width=True
                         )
-                    except:
-                        pass  # SVG export might not be available
+                    except Exception as e:
+                        st.info("📥 SVG export temporarily unavailable in this environment")
 
 
 
