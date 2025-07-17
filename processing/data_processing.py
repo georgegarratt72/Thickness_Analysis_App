@@ -1,0 +1,157 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+from .plotting import create_distribution_plot, create_thickness_profiles_plot
+from utils.helpers import generate_lot_analysis_report_html
+
+@st.cache_data
+def load_and_validate_data(uploaded_file):
+    """Loads and validates the uploaded CSV file."""
+    df = pd.read_csv(uploaded_file)
+    
+    required_cols = ['sensor_id', 'position_mm', 'thickness_mm', 'condition']
+    if not all(col in df.columns for col in required_cols):
+        raise ValueError("CSV must contain 'sensor_id', 'position_mm', 'thickness_mm', and 'condition' columns.")
+
+    df['condition'] = df['condition'].str.strip().str.title()
+    
+    if 'Pre' in df['condition'].values and 'measurement_mm' not in df.columns:
+        raise ValueError("Column 'measurement_mm' is required for 'Pre' condition data.")
+        
+    return df
+
+@st.cache_data
+def calculate_uniformity_scores(_df, target_mean=17.5):
+    """Calculate uniformity scores for thickness data."""
+    if _df.empty:
+        return pd.DataFrame()
+    
+    df_filtered = _df[
+        (_df['position_mm'] >= 0.2) & 
+        (_df['position_mm'] <= 0.8) & 
+        (_df['thickness_um'] > 0) & 
+        (_df['thickness_um'].notna())
+    ].copy()
+    
+    if df_filtered.empty:
+        return pd.DataFrame()
+    
+    # Vectorized calculations for speed
+    grouped = df_filtered.groupby('sensor_id')
+    
+    results = grouped['thickness_um'].agg(['mean', 'std', 'min', 'max']).reset_index()
+    results.rename(columns={'mean': 'mean_thickness', 'std': 'thickness_sd'}, inplace=True)
+    results['thickness_range'] = results['max'] - results['min']
+    
+    # R² straightness (requires iteration)
+    r2_scores = []
+    for sensor_id, sensor_data in grouped:
+        if len(sensor_data) > 2 and sensor_data['position_mm'].var() > 0:
+            X = sensor_data['position_mm'].values.reshape(-1, 1)
+            y = sensor_data['thickness_um'].values
+            model = LinearRegression().fit(X, y)
+            r2_scores.append({'sensor_id': sensor_id, 'r2_straightness': r2_score(y, model.predict(X))})
+        else:
+            r2_scores.append({'sensor_id': sensor_id, 'r2_straightness': 0})
+    
+    results = pd.merge(results, pd.DataFrame(r2_scores), on='sensor_id')
+
+    # Symmetry score (requires iteration)
+    symmetry_scores = []
+    for sensor_id, sensor_data in grouped:
+        median_pos = sensor_data['position_mm'].median()
+        left_mean = sensor_data[sensor_data['position_mm'] <= median_pos]['thickness_um'].mean()
+        right_mean = sensor_data[sensor_data['position_mm'] > median_pos]['thickness_um'].mean()
+        overall_mean = (left_mean + right_mean) / 2
+        symmetry_score = 1 - abs(left_mean - right_mean) / overall_mean if overall_mean > 0 else 0
+        symmetry_scores.append({'sensor_id': sensor_id, 'symmetry_bonus': max(symmetry_score, 0)})
+        
+    results = pd.merge(results, pd.DataFrame(symmetry_scores), on='sensor_id')
+
+    # Penalties and final scores
+    global_max_range = results['thickness_range'].max()
+    results['mean_penalty'] = np.exp(-((results['mean_thickness'] - target_mean)**2) / (2 * 2**2))
+    results['smoothness_penalty'] = 1 / (1 + results['thickness_sd'].fillna(0))
+    results['range_penalty'] = 1 - results['thickness_range'] / global_max_range if global_max_range > 0 else 0
+    
+    results['TUS'] = (0.3 * results['mean_penalty'] + 
+                      0.2 * results['smoothness_penalty'] + 
+                      0.2 * results['range_penalty'] + 
+                      0.2 * results['r2_straightness'] + 
+                      0.1 * results['symmetry_bonus'])
+    
+    results['RUS'] = (0.25 * results['smoothness_penalty'] + 
+                      0.35 * results['range_penalty'] + 
+                      0.20 * results['r2_straightness'] + 
+                      0.20 * results['symmetry_bonus'])
+
+    # Categorize scores
+    bins = [-np.inf, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, np.inf]
+    labels = ["0.0 - 0.1", "0.1 - 0.2", "0.2 - 0.3", "0.3 - 0.4", "0.4 - 0.5", "0.5 - 0.6", "0.6 - 0.7", "0.7 - 0.8", "0.8 - 0.9", "0.9 - 1.0"]
+    results['TUS_category'] = pd.cut(results['TUS'], bins=bins, labels=labels, right=False)
+    results['RUS_category'] = pd.cut(results['RUS'], bins=bins, labels=labels, right=False)
+    
+    return results[['sensor_id', 'mean_thickness', 'thickness_sd', 'thickness_range', 'r2_straightness', 'TUS', 'RUS', 'TUS_category', 'RUS_category']]
+
+def process_and_cache_results(df, target_mean_pre, target_mean_post, filename):
+    """Processes both Pre and Post OL data and caches all results."""
+    
+    # --- Pre-OL ---
+    pre_df = df[df['condition'] == 'Pre'].copy()
+    if not pre_df.empty:
+        pre_df.rename(columns={'measurement_mm': 'thickness_um'}, inplace=True)
+        st.session_state.pre_scores = calculate_uniformity_scores(pre_df, target_mean_pre)
+        
+        pre_filtered = pre_df[(pre_df['position_mm'] >= 0.2) & (pre_df['position_mm'] <= 0.8) & (pre_df['thickness_um'] > 0)]
+        pre_y_max = pre_filtered['thickness_um'].max() * 1.05 if not pre_filtered.empty else None
+        y_range_pre = [50, pre_y_max] if pre_y_max else None
+        
+        st.session_state.pre_plots = {
+            'TUS_dist': create_distribution_plot(st.session_state.pre_scores, 'TUS'),
+            'RUS_dist': create_distribution_plot(st.session_state.pre_scores, 'RUS'),
+            'TUS_profile': create_thickness_profiles_plot(pre_filtered, st.session_state.pre_scores, 'TUS', target_mean_pre, y_range=y_range_pre),
+            'RUS_profile': create_thickness_profiles_plot(pre_filtered, st.session_state.pre_scores, 'RUS', target_mean_pre, y_range=y_range_pre)
+        }
+        
+        # Generate full HTML report with embedded interactive plots (INSTANT!)
+        st.session_state.pre_report_html = generate_lot_analysis_report_html(
+            "Pre-OL Thickness Report", st.session_state.pre_scores, 
+            st.session_state.pre_plots, target_mean_pre, filename
+        )
+    else:
+        st.session_state.pre_scores = pd.DataFrame()
+        st.session_state.pre_plots = {}
+        st.session_state.pre_report_html = ""
+
+    # --- Post-OL ---
+    post_df = df[df['condition'] == 'Post'].copy()
+    if not post_df.empty:
+        post_df.rename(columns={'thickness_mm': 'thickness_um'}, inplace=True)
+        st.session_state.post_scores = calculate_uniformity_scores(post_df, target_mean_post)
+        
+        post_filtered = post_df[(post_df['position_mm'] >= 0.2) & (post_df['position_mm'] <= 0.8) & (post_df['thickness_um'] > 0)]
+        post_y_max = post_filtered['thickness_um'].max() * 1.05 if not post_filtered.empty else None
+        y_range_post = [0, post_y_max] if post_y_max else None
+        
+        st.session_state.post_plots = {
+            'TUS_dist': create_distribution_plot(st.session_state.post_scores, 'TUS'),
+            'RUS_dist': create_distribution_plot(st.session_state.post_scores, 'RUS'),
+            'TUS_profile': create_thickness_profiles_plot(post_filtered, st.session_state.post_scores, 'TUS', target_mean_post, y_range=y_range_post),
+            'RUS_profile': create_thickness_profiles_plot(post_filtered, st.session_state.post_scores, 'RUS', target_mean_post, y_range=y_range_post)
+        }
+        
+        # Generate full HTML report with embedded interactive plots (INSTANT!)
+        st.session_state.post_report_html = generate_lot_analysis_report_html(
+            "Post-OL Thickness Report", st.session_state.post_scores, 
+            st.session_state.post_plots, target_mean_post, filename
+        )
+    else:
+        st.session_state.post_scores = pd.DataFrame()
+        st.session_state.post_plots = {}
+        st.session_state.post_report_html = ""
+
+    st.session_state.data_uploaded = True
+    st.session_state.input_filename = filename
+    st.success("Data processed successfully!") 

@@ -1,12 +1,23 @@
 import streamlit as st
-from streamlit_option_menu import option_menu
 import warnings
+import sys
+import os
 
-from utils.ui import load_custom_css, keyboard_shortcuts
-from views.welcome import render_welcome_page
-from views.upload import render_upload_page
-from views.analysis import render_analysis_dashboard
-from views.help import render_help_page
+# Add the current directory to Python path to ensure modules can be found
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+try:
+    from utils.ui import load_custom_css, keyboard_shortcuts
+    from views.welcome import render_welcome_page
+    from views.upload import render_upload_page
+    from views.analysis import render_analysis_dashboard
+    from views.help import render_help_page
+except ImportError as e:
+    st.error(f"Import error: {e}")
+    st.error("Please make sure all required files are uploaded to your repository.")
+    st.stop()
 
 warnings.filterwarnings('ignore')
 
