@@ -136,7 +136,7 @@ def create_thickness_profiles_plot(df, scores_df, score_type='TUS', target_mean=
         rows=len(categories), 
         cols=1,
         subplot_titles=[f'{score_type}: {cat}' for cat in categories],
-        vertical_spacing=0.15,
+        vertical_spacing=0.08,
     )
     
     colors = px.colors.qualitative.Set3
@@ -165,6 +165,12 @@ def create_thickness_profiles_plot(df, scores_df, score_type='TUS', target_mean=
         fig.add_annotation(x=0.8, y=target_mean, text=f"Target: {target_mean} μm", showarrow=False, yshift=10, xanchor='right', row=i+1, col=1)
         fig.update_xaxes(title_text="Position (mm)", showticklabels=True, row=i+1, col=1)
         fig.update_yaxes(title_text="Thickness (μm)", showticklabels=True, row=i+1, col=1)
+        
+        # Apply tight y-axis range to each subplot individually
+        if y_range:
+            fig.update_yaxes(range=y_range, row=i+1, col=1)
+
+    plot_height = max(400, 300 * len(categories))
 
     fig.update_layout(
         title=dict(
@@ -173,8 +179,8 @@ def create_thickness_profiles_plot(df, scores_df, score_type='TUS', target_mean=
             x=0.5,
             xanchor='center'
         ),
-        height=max(600, 300 * len(categories)),
-        width=1000,
+        height=plot_height,
+        width=None,  # Explicitly set width to None for full-width display
         showlegend=False,
         margin=dict(l=80, r=40, t=100, b=60),
         plot_bgcolor='white',
@@ -212,8 +218,5 @@ def create_thickness_profiles_plot(df, scores_df, score_type='TUS', target_mean=
     )
     
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-    
-    if y_range:
-        fig.update_yaxes(range=y_range)
     
     return fig 

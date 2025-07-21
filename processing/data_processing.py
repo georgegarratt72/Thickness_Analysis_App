@@ -114,8 +114,14 @@ def process_and_cache_results(df, target_mean_pre, target_mean_post, filename):
         st.session_state.pre_scores = calculate_uniformity_scores(pre_df, target_mean_pre)
         
         pre_filtered = pre_df[(pre_df['position_mm'] >= 0.2) & (pre_df['position_mm'] <= 0.8) & (pre_df['thickness_um'] > 0)]
-        pre_y_max = pre_filtered['thickness_um'].max() * 1.05 if not pre_filtered.empty else None
-        y_range_pre = [50, pre_y_max] if pre_y_max else None
+        if not pre_filtered.empty:
+            pre_y_min = pre_filtered['thickness_um'].min()
+            pre_y_max = pre_filtered['thickness_um'].max()
+            # Calculate dynamic range with tighter padding for better profile visibility
+            y_range_padding = (pre_y_max - pre_y_min) * 0.20  # 20% padding for a taller view
+            y_range_pre = [max(0, pre_y_min - y_range_padding), pre_y_max + y_range_padding]
+        else:
+            y_range_pre = None
         
         st.session_state.pre_plots = {
             'TUS_dist': create_distribution_plot(st.session_state.pre_scores, 'TUS'),
@@ -150,8 +156,14 @@ def process_and_cache_results(df, target_mean_pre, target_mean_post, filename):
         st.session_state.post_scores = calculate_uniformity_scores(post_df, target_mean_post)
         
         post_filtered = post_df[(post_df['position_mm'] >= 0.2) & (post_df['position_mm'] <= 0.8) & (post_df['thickness_um'] > 0)]
-        post_y_max = post_filtered['thickness_um'].max() * 1.05 if not post_filtered.empty else None
-        y_range_post = [0, post_y_max] if post_y_max else None
+        if not post_filtered.empty:
+            post_y_min = post_filtered['thickness_um'].min()
+            post_y_max = post_filtered['thickness_um'].max()
+            # Calculate dynamic range with tighter padding for better profile visibility
+            y_range_padding = (post_y_max - post_y_min) * 0.05  # 5% padding for tighter view
+            y_range_post = [max(0, post_y_min - y_range_padding), post_y_max + y_range_padding]
+        else:
+            y_range_post = None
         
         st.session_state.post_plots = {
             'TUS_dist': create_distribution_plot(st.session_state.post_scores, 'TUS'),
