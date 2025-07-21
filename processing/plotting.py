@@ -170,7 +170,7 @@ def create_thickness_profiles_plot(df, scores_df, score_type='TUS', target_mean=
         if y_range:
             fig.update_yaxes(range=y_range, row=i+1, col=1)
 
-    plot_height = max(400, 300 * len(categories))
+    plot_height = max(400, 350 * len(categories))
 
     fig.update_layout(
         title=dict(
@@ -180,7 +180,6 @@ def create_thickness_profiles_plot(df, scores_df, score_type='TUS', target_mean=
             xanchor='center'
         ),
         height=plot_height,
-        width=None,  # Explicitly set width to None for full-width display
         showlegend=False,
         margin=dict(l=80, r=40, t=100, b=60),
         plot_bgcolor='white',
