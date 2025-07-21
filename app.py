@@ -292,7 +292,7 @@ def render_upload_page():
                         st.session_state.processed_filename = uploaded_file.name
                         
                         # Create plots
-                        if not pre_scores.empty:
+                        if pre_scores is not None and not pre_scores.empty:
                             st.session_state.pre_plots = {
                                 'TUS_dist': create_distribution_plot(pre_scores, 'TUS'),
                                 'RUS_dist': create_distribution_plot(pre_scores, 'RUS'),
@@ -300,7 +300,7 @@ def render_upload_page():
                                 'RUS_profile': create_profile_plots(pre_data, pre_scores, 'RUS')
                             }
                         
-                        if not post_scores.empty:
+                        if post_scores is not None and not post_scores.empty:
                             st.session_state.post_plots = {
                                 'TUS_dist': create_distribution_plot(post_scores, 'TUS'),
                                 'RUS_dist': create_distribution_plot(post_scores, 'RUS'),
@@ -348,10 +348,10 @@ def render_analysis_dashboard(analysis_type):
         st.metric("Mean Thickness", f"{mean_thickness:.1f} μm")
     with col3:
         mean_sd = scores['thickness_sd'].mean()
-        st.metric("Mean Std Dev", f"{mean_sd:.2f} μm")
+        st.metric("Mean Thickness Std Dev", f"{mean_sd:.2f} μm")
     with col4:
         mean_range = scores['thickness_range'].mean()
-        st.metric("Mean Range", f"{mean_range:.2f} μm")
+        st.metric("Mean Thickness Range", f"{mean_range:.2f} μm")
     with col5:
         mean_tus = scores['TUS'].mean()
         st.metric("Mean TUS Score", f"{mean_tus:.3f}")
