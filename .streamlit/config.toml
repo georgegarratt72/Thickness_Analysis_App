@@ -1,0 +1,23 @@
+# This is a placeholder for your Streamlit configuration.
+# You can add settings here, for example:
+#
+# [theme]
+# primaryColor="#F63366"
+# backgroundColor="#FFFFFF"
+# secondaryBackgroundColor="#F0F2F6"
+# textColor="#262730"
+# font="sans serif"
+
+[server]
+maxUploadSize = 200
+enableCORS = false
+enableXsrfProtection = false
+
+[theme]
+primaryColor = "#9b59b6"
+backgroundColor = "#f4f6f9"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#262730"
+
+[browser]
+gatherUsageStats = false 

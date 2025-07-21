@@ -115,6 +115,23 @@ def create_thickness_profiles_plot(df, scores_df, score_type='TUS', target_mean=
     
     categories = sorted(df_plot[category_col].dropna().unique(), reverse=True)
     
+    # Handle case where no categories exist
+    if len(categories) == 0:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data available for plotting",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="gray")
+        )
+        fig.update_layout(
+            title=f'{score_type} Thickness Profiles by Category',
+            height=400,
+            plot_bgcolor='white',
+            paper_bgcolor='white'
+        )
+        return fig
+    
     fig = make_subplots(
         rows=len(categories), 
         cols=1,

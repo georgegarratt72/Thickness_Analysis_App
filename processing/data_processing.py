@@ -11,14 +11,18 @@ def load_and_validate_data(uploaded_file):
     """Loads and validates the uploaded CSV file."""
     df = pd.read_csv(uploaded_file)
     
-    required_cols = ['sensor_id', 'position_mm', 'thickness_mm', 'condition']
+    required_cols = ['sensor_id', 'position_mm', 'condition']
     if not all(col in df.columns for col in required_cols):
-        raise ValueError("CSV must contain 'sensor_id', 'position_mm', 'thickness_mm', and 'condition' columns.")
+        raise ValueError("CSV must contain 'sensor_id', 'position_mm', and 'condition' columns.")
 
     df['condition'] = df['condition'].str.strip().str.title()
     
+    # Check condition-specific requirements
     if 'Pre' in df['condition'].values and 'measurement_mm' not in df.columns:
         raise ValueError("Column 'measurement_mm' is required for 'Pre' condition data.")
+    
+    if 'Post' in df['condition'].values and 'thickness_mm' not in df.columns:
+        raise ValueError("Column 'thickness_mm' is required for 'Post' condition data.")
         
     return df
 
@@ -101,7 +105,12 @@ def process_and_cache_results(df, target_mean_pre, target_mean_post, filename):
     # --- Pre-OL ---
     pre_df = df[df['condition'] == 'Pre'].copy()
     if not pre_df.empty:
-        pre_df.rename(columns={'measurement_mm': 'thickness_um'}, inplace=True)
+        # For Pre-OL data, use measurement_mm as thickness (already in microns, just rename)
+        if 'measurement_mm' in pre_df.columns:
+            pre_df['thickness_um'] = pre_df['measurement_mm']  # Already in microns
+        else:
+            st.error("Pre-OL data requires 'measurement_mm' column")
+            return
         st.session_state.pre_scores = calculate_uniformity_scores(pre_df, target_mean_pre)
         
         pre_filtered = pre_df[(pre_df['position_mm'] >= 0.2) & (pre_df['position_mm'] <= 0.8) & (pre_df['thickness_um'] > 0)]
@@ -128,7 +137,16 @@ def process_and_cache_results(df, target_mean_pre, target_mean_post, filename):
     # --- Post-OL ---
     post_df = df[df['condition'] == 'Post'].copy()
     if not post_df.empty:
-        post_df.rename(columns={'thickness_mm': 'thickness_um'}, inplace=True)
+        # For Post-OL data, use thickness_mm (already in microns, just rename)
+        if 'thickness_mm' in post_df.columns:
+            # Filter out empty/null thickness values first
+            post_df = post_df[post_df['thickness_mm'].notna() & (post_df['thickness_mm'] != '')]
+            post_df['thickness_um'] = pd.to_numeric(post_df['thickness_mm'], errors='coerce')  # Already in microns
+            # Remove rows where conversion failed
+            post_df = post_df[post_df['thickness_um'].notna()]
+        else:
+            st.error("Post-OL data requires 'thickness_mm' column")
+            return
         st.session_state.post_scores = calculate_uniformity_scores(post_df, target_mean_post)
         
         post_filtered = post_df[(post_df['position_mm'] >= 0.2) & (post_df['position_mm'] <= 0.8) & (post_df['thickness_um'] > 0)]
