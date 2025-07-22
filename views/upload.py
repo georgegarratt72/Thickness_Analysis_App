@@ -1,5 +1,5 @@
 import streamlit as st
-from processing.data_processing import load_and_validate_data, process_and_cache_results
+from processing.data_processing import load_and_validate_data, process_and_cache_results, get_session_id
 
 def render_upload_page():
     """
@@ -49,17 +49,38 @@ def render_upload_page():
                     st.metric("Post-OL Sensors", "0")
         
         if st.button("🗑️ Clear Processed Data", type="secondary"):
+            # Clear Streamlit caches first - this is critical for preventing data contamination
+            try:
+                # Clear all @st.cache_data caches
+                st.cache_data.clear()
+                # Alternative: Clear specific cached functions if needed
+                # load_and_validate_data.clear()  
+                # process_and_cache_results.clear()
+                st.success("✅ All caches cleared successfully!")
+            except Exception as e:
+                st.warning(f"Cache clearing had issues (this is usually fine): {e}")
+            
             # Reset session state related to data
-            for key in ['data_uploaded', 'pre_scores', 'post_scores', 'pre_plots', 'post_plots', 'pre_report_html', 'post_report_html', 'input_filename', 'background_processing_started']:
+            keys_to_clear = [
+                'data_uploaded', 'processed_data', 'pre_scores', 'post_scores', 
+                'pre_plots', 'post_plots', 'pre_report_html', 'post_report_html', 
+                'processed_filename', 'input_filename', 'background_processing_started'
+            ]
+            
+            for key in keys_to_clear:
                 if key in st.session_state:
                     del st.session_state[key]
+            
+            st.success("✅ Session data cleared successfully!")
             st.rerun()
     
     elif uploaded_file:
         # Show file validation and processing only when no data is processed yet
         try:
             with st.spinner("Validating file..."):
-                df = load_and_validate_data(uploaded_file)
+                # Pass session ID for cache isolation
+                session_id = get_session_id()
+                df = load_and_validate_data(uploaded_file, _session_id=session_id)
             
             with st.container(border=True):
                 st.success("✅ File validation successful!")

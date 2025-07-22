@@ -6,9 +6,16 @@ from sklearn.metrics import r2_score
 from .plotting import create_distribution_plot, create_thickness_profiles_plot
 from utils.helpers import generate_lot_analysis_report_html
 
+def get_session_id():
+    """Get unique session ID for cache isolation between users."""
+    if 'session_id' not in st.session_state:
+        import uuid
+        st.session_state.session_id = str(uuid.uuid4())
+    return st.session_state.session_id
+
 @st.cache_data
-def load_and_validate_data(uploaded_file):
-    """Loads and validates the uploaded CSV file."""
+def load_and_validate_data(uploaded_file, _session_id=None):
+    """Loads and validates the uploaded CSV file. _session_id ensures cache isolation between users."""
     df = pd.read_csv(uploaded_file)
     
     required_cols = ['sensor_id', 'position_mm', 'condition']
@@ -27,8 +34,8 @@ def load_and_validate_data(uploaded_file):
     return df
 
 @st.cache_data
-def calculate_uniformity_scores(_df, target_mean=17.5):
-    """Calculate uniformity scores for thickness data."""
+def calculate_uniformity_scores(_df, target_mean=17.5, _session_id=None):
+    """Calculate uniformity scores for thickness data. _session_id ensures cache isolation between users."""
     if _df.empty:
         return pd.DataFrame()
     
@@ -102,6 +109,9 @@ def calculate_uniformity_scores(_df, target_mean=17.5):
 def process_and_cache_results(df, target_mean_pre, target_mean_post, filename):
     """Processes both Pre and Post OL data and caches all results."""
     
+    # Get session ID for cache isolation
+    session_id = get_session_id()
+    
     # --- Pre-OL ---
     pre_df = df[df['condition'] == 'Pre'].copy()
     if not pre_df.empty:
@@ -111,7 +121,7 @@ def process_and_cache_results(df, target_mean_pre, target_mean_post, filename):
         else:
             st.error("Pre-OL data requires 'measurement_mm' column")
             return
-        st.session_state.pre_scores = calculate_uniformity_scores(pre_df, target_mean_pre)
+        st.session_state.pre_scores = calculate_uniformity_scores(pre_df, target_mean_pre, _session_id=session_id)
         
         pre_filtered = pre_df[(pre_df['position_mm'] >= 0.2) & (pre_df['position_mm'] <= 0.8) & (pre_df['thickness_um'] > 0)]
         if not pre_filtered.empty:
@@ -153,7 +163,7 @@ def process_and_cache_results(df, target_mean_pre, target_mean_post, filename):
         else:
             st.error("Post-OL data requires 'thickness_mm' column")
             return
-        st.session_state.post_scores = calculate_uniformity_scores(post_df, target_mean_post)
+        st.session_state.post_scores = calculate_uniformity_scores(post_df, target_mean_post, _session_id=session_id)
         
         post_filtered = post_df[(post_df['position_mm'] >= 0.2) & (post_df['position_mm'] <= 0.8) & (post_df['thickness_um'] > 0)]
         if not post_filtered.empty:
